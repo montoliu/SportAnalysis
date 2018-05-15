@@ -34,39 +34,84 @@ def diferencias_maximas():
 
 
 # -------------------------------------------------------------------------------------
-# crea tabla con el pct del tiempo que cada jugador ha estado en cada estrato de edwards
-# game, edwards, player, pct
-def estimate_pct_edwards(output_filename):
+def go_tabla_edwards():
     n_games = 5
     n_edwards = 5
     n_players = 10
 
-    ed_filename = "../DATA/edwards.csv"
-    ed_data = pd.read_csv(ed_filename)
+    ed_data = pd.read_csv("../DATA/PRE/edwards.csv")
     ed_data = ed_data.values
+    #0:game, 1:second, 2:player, 3:edwards, 4: time, 5:playing
 
-    my_file = open(output_filename, 'wt')
-    my_file.write("game,player,edwards,pct\n")
+    pct_data = np.zeros((n_games*n_players*3, 9))
+    #0:game, 1:player, 2:time, 3:pct0, 4:pct1, 5:pct2, 6:pct3, 7:pct4, 8:pct5
 
+    i = 0
     for i_game in range(n_games):
-        game = i_game + 1
-
-        idx = ed_data[:, 0] == game
-        n_seg = np.max(ed_data[idx, 1])
+        game_id = i_game + 1
         for i_player in range(n_players):
-            player = i_player + 1
+            player_id = i_player + 1
 
-            s = str(game) + "," + str(player)
-            for i_ed in range(n_edwards):
-                ed = i_ed + 1
-                idx = np.logical_and(ed_data[:, 0] == game, ed_data[:, 2] == player)
-                idx = np.logical_and(idx, ed_data[:, 3] == ed)
-                pct = np.sum(idx) / n_seg
-                s = s + "," + "{0:0.2f}".format(pct)
+            idx = np.logical_and(ed_data[:, 0] == game_id, ed_data[:, 2] == player_id)
 
-            my_file.write(s + "\n")
+            if np.sum(ed_data[idx, 5] == -1) > 0:
+                pct_data[i, :] = np.zeros((1, 9)) + -1
+                pct_data[i + 1, :] = np.zeros((1, 9)) + -1
+                pct_data[i + 2, :] = np.zeros((1, 9)) + -1
+            else:
+                # wt
+                N = sum(idx)
+                pct_data[i, 0] = game_id
+                pct_data[i, 1] = player_id
+                pct_data[i, 2] = 3
+                pct_data[i, 3] = np.sum(ed_data[idx, 3] == 0) / N
+                pct_data[i, 4] = np.sum(ed_data[idx, 3] == 1) / N
+                pct_data[i, 5] = np.sum(ed_data[idx, 3] == 2) / N
+                pct_data[i, 6] = np.sum(ed_data[idx, 3] == 3) / N
+                pct_data[i, 7] = np.sum(ed_data[idx, 3] == 4) / N
+                pct_data[i, 8] = np.sum(ed_data[idx, 3] == 5) / N
 
-    my_file.close()
+                #tt
+                idx_tt = np.logical_and(idx, ed_data[:, 5] == 1)  # esta jugando
+                idx_tt = np.logical_and(idx_tt, ed_data[:, 4] <= 2)  # el tiempo es TT o LT
+                N = np.sum(idx_tt)
+                pct_data[i + 1, 0] = game_id
+                pct_data[i + 1, 1] = player_id
+                pct_data[i + 1, 2] = 2
+                pct_data[i + 1, 3] = np.sum(ed_data[idx_tt, 3] == 0) / N
+                pct_data[i + 1, 4] = np.sum(ed_data[idx_tt, 3] == 1) / N
+                pct_data[i + 1, 5] = np.sum(ed_data[idx_tt, 3] == 2) / N
+                pct_data[i + 1, 6] = np.sum(ed_data[idx_tt, 3] == 3) / N
+                pct_data[i + 1, 7] = np.sum(ed_data[idx_tt, 3] == 4) / N
+                pct_data[i + 1, 8] = np.sum(ed_data[idx_tt, 3] == 5) / N
+
+                # tt
+                idx_lt = np.logical_and(idx, ed_data[:, 5] == 1)  # esta jugando
+                idx_lt = np.logical_and(idx_lt, ed_data[:, 4] == 1)  # el timepo es LT
+                N = np.sum(idx_lt)
+                pct_data[i + 2, 0] = game_id
+                pct_data[i + 2, 1] = player_id
+                pct_data[i + 2, 2] = 1
+
+                pct_data[i + 2, 3] = np.sum(ed_data[idx_lt, 3] == 0) / N
+                pct_data[i + 2, 4] = np.sum(ed_data[idx_lt, 3] == 1) / N
+                pct_data[i + 2, 5] = np.sum(ed_data[idx_lt, 3] == 2) / N
+                pct_data[i + 2, 6] = np.sum(ed_data[idx_lt, 3] == 3) / N
+                pct_data[i + 2, 7] = np.sum(ed_data[idx_lt, 3] == 4) / N
+                pct_data[i + 2, 8] = np.sum(ed_data[idx_lt, 3] == 5) / N
+
+            i = i + 3
+
+    # 0:game, 1:player, 2:time, 3:pct0, 4:pct1, 5:pct2, 6:pct3, 7:pct4, 8:pct5
+    # ahora las medias
+
+    print(["{0:0.2f}".format(100*k) for k in np.mean(pct_data[pct_data[:, 2] == 3, 3:9], axis=0)])
+    print(["{0:0.2f}".format(100*k) for k in np.mean(pct_data[pct_data[:, 2] == 2, 3:9], axis=0)])
+    print(["{0:0.2f}".format(100*k) for k in np.mean(pct_data[pct_data[:, 2] == 1, 3:9], axis=0)])
+
+    print(["{0:0.2f}".format(100*k) for k in np.std(pct_data[pct_data[:, 2] == 3, 3:9], axis=0)])
+    print(["{0:0.2f}".format(100*k) for k in np.std(pct_data[pct_data[:, 2] == 2, 3:9], axis=0)])
+    print(["{0:0.2f}".format(100*k) for k in np.std(pct_data[pct_data[:, 2] == 1, 3:9], axis=0)])
 
 
 def go_tabla_fc():

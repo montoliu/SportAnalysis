@@ -77,43 +77,53 @@ def excel_to_csv():
             convert_datafile(out_yoyo, in_yoyo, cabecera)
             convert_datafile(out_tivre, in_tivre, cabecera)
 
-
+# <50 -> 0
 # <60 -> 1
 # <70 -> 2
 # <80 -> 3
 # <90 -> 4
 # <100 -> 5
 # de la FC max
-def create_edwards(output_filename):
+def create_edwards():
+    fc_data = pd.read_csv("../DATA/fc_database.csv")
+    gm_data = pd.read_csv("../DATA/gm_database.csv")
 
+    merge_data = pd.merge(fc_data, gm_data, left_on=['game', 'second'], right_on=['game', 'second'])
+    merge_data = merge_data.values
+    # 0:game, 1:second, 2:player, 3:fc, 4:playing, 5:state, 6: quarter, 7:atdef, 8:pos, 9:neg, 10:diff
     n_players = 10
     n_games = 5
+
     # Obtener la FC max de cada jugador en cada partido
-    fc_max = np.zeros((n_games, n_players))
+    fc_max = pd.read_csv("../DATA/max_fc.csv")
+    fc_max = fc_max.values
 
-    for i in range(n_games):
-        fc_filename = "../DATA/g" + str(i+1) + "_fc.csv"
-        fc_data = pd.read_csv(fc_filename)
+    my_file = open("../DATA/PRE/edwards.csv", 'wt')
+    my_file.write("game,second,player,edwards,time,playing\n")
+    for i in range(merge_data.shape[0]):
+        game = merge_data[i, 0]
+        second = merge_data[i, 1]
+        player = merge_data[i, 2]
+        fc = merge_data[i, 3]
+        playing = merge_data[i, 4]
+        state = merge_data[i, 5]
 
-        max_fc_data = np.max(fc_data, axis=0)
-        fc_max[i, :] = max_fc_data[1:n_players+1]
+        ed = get_edwards(fc, fc_max[player-1, 6])
+        type_time = get_time_from_state(state)
 
-    fc_max_player = np.nanmax(fc_max, axis=0)
-
-    my_file = open(output_filename, 'wt')
-    my_file.write("game,second,player,edwards\n")
-
-    for i_game in range(n_games):
-        fc_filename = "../DATA/g" + str(i_game+1) + "_fc.csv"
-        fc_data = pd.read_csv(fc_filename)
-        fc_data = fc_data.values
-        for i_second in range(fc_data.shape[0]):
-            for i_player in range(fc_data.shape[1]):
-                if i_player > 0:
-                    ed = get_edwards(fc_data[i_second, i_player], fc_max_player[i_player-1])
-                    s = str(i_game+1) + "," + str(i_second) + "," + str(i_player) + "," + str(ed)
-                    my_file.write(s + "\n")
+        s = str(game) + "," + str(second) + "," + str(player) + "," + str(ed) + "," + str(type_time)+ "," + str(playing)
+        my_file.write(s + "\n")
     my_file.close()
+
+
+def get_time_from_state(state):
+    if state == 1:
+        t = 1
+    elif state > 1:
+        t = 2
+    else:
+        t = 3
+    return t
 
 
 def get_edwards(fc, fc_max):
@@ -121,7 +131,9 @@ def get_edwards(fc, fc_max):
         ed = -1
     else:
         pct_fc = fc / fc_max
-        if pct_fc < 0.6:
+        if pct_fc < 0.5:
+            ed = 0
+        elif pct_fc < 0.6:
             ed = 1
         elif pct_fc < 0.7:
             ed = 2
